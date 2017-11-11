@@ -38,7 +38,7 @@ const float epsilon_init = 0.12;
 // TWEAK LATER
 const int epochs = 600;
 const int batch_size = 100;
-const float learning_rate = 0.001;
+const float learning_rate = 0.01;
 
 const float momentum = 0.8;
 
@@ -143,9 +143,6 @@ float error;
 const float epsilon = 0.000001; // 0.0000001 = 91.1%
 const float kGamma = 0.9;
 
-FMatrix2D cache_1(kS2, vector<float>(kS1WithBias));
-FMatrix2D cache_2(kS3, vector<float>(kS2WithBias));
-
 void Backpropagate() {
     vector<float> target_value(kS3);
     target_value[*expected_label_for_current_input_vector] = 1;
@@ -165,30 +162,25 @@ void Backpropagate() {
     for (int i = 0; i < kS2; i++) {
         for (int j = 0; j < kS3; j++) {
             float grad = delta_3[j] * a_2[i+1];
-            cache_2[j][i+1] += pow(grad, 2) ;
-            theta_2[j][i+1] += learning_rate * grad / (sqrt(cache_2[j][i+1]) + epsilon);
-            //theta_2[j][i+1] += learning_rate * delta_3[j] * a_2[i+1];
+            theta_2[j][i+1] += learning_rate * grad;
             //theta_2[j][i+1] = learning_rate * delta_3[j] * a_2[i+1] + momentum * theta_2[j][i+1];
         }
     }
     for (int j = 0; j < kS3; j++) {
-        cache_2[j][0] += pow(delta_3[j], 2);
-        theta_2[j][0] += learning_rate * delta_3[j] / (sqrt(cache_2[j][0]) + epsilon);
+        theta_2[j][0] += learning_rate * delta_3[j];
         //theta_2[j][0] = learning_rate * delta_3[j] + momentum * theta_2[j][0];
     }
     
     for (int i = 0; i < kS1; i++) {
         for (int j = 0; j < kS2; j++) {
             float grad = delta_2[j] * a_1[i+1];
-            cache_1[j][i+1] += pow(grad, 2);
-            theta_1[j][i+1] += learning_rate * grad / (sqrt(cache_1[j][i+1]) + epsilon);
+            theta_1[j][i+1] += learning_rate * grad;
             //theta_1[j][i+1] += learning_rate * delta_2[j] * a_1[i+1];
             //theta_1[j][i+1] = learning_rate * delta_2[j] * a_1[i+1] + momentum * theta_1[j][i+1];
         }
     }
     for (int j = 0; j < kS2; j++) {
-        cache_1[j][0] += pow(delta_2[j], 2);
-        theta_1[j][0] += learning_rate * delta_2[j] / (sqrt(cache_1[j][0]) + epsilon);
+        theta_1[j][0] += learning_rate * delta_2[j];
         //theta_1[j][0] = learning_rate * delta_2[j] + momentum * theta_1[j][0];
     }
     
@@ -228,7 +220,7 @@ int LoadVectorsAndLabelsFromFile(string vector_filename, string label_filename) 
 void TrainNeuralNetwork() {
     int trainingSetSize = LoadVectorsAndLabelsFromFile(kMnistTrainVectorsFileName, kMnistTrainLabelsFileName);
     cout << "Starting simple SGD training of a 3-layer NN..." << endl;
-    cout << kS1 << "input neurons x " << kS2 << " hidden neurons x " << kS3 << "output neurons." << endl;
+    cout << "(" << kS1 << " input neurons) x (" << kS2 << " hidden neurons) x (" << kS3 << " output neurons)" << endl;
     cout << "Learning rate: " << learning_rate << endl;
     cout << "Epochs: " << epochs << endl;
     cout << "Batch size: " << batch_size << endl;
