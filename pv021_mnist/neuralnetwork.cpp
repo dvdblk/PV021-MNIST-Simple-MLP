@@ -36,9 +36,9 @@ const int kInputImageHeight = 28;
 const float epsilon_init = 0.12;
 
 // TWEAK LATER
-const int epochs = 6000;
-const int batch_size = 10;
-const float learning_rate = 0.1;
+const int epochs = 60000;
+const int batch_size = 1;
+const float learning_rate = 0.01;
 
 const float momentum = 0.8;
 
