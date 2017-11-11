@@ -36,9 +36,9 @@ const int kInputImageHeight = 28;
 const float epsilon_init = 0.12;
 
 // TWEAK LATER
-const int epochs = 600;
-const int batch_size = 100;
-const float learning_rate = 0.01;
+const int epochs = 6000;
+const int batch_size = 10;
+const float learning_rate = 0.1;
 
 const float momentum = 0.8;
 
@@ -69,6 +69,10 @@ vector<float> a_3(kS3); // h of Theta
 
 vector<float> z_2(kS2);
 vector<float> z_3(kS3);
+
+vector<float> delta_hidden(kS2WithBias);
+vector<float> delta_output(kS3);
+
 
 // --- Implementation
 
@@ -137,51 +141,50 @@ void Propagate(vector<int> input) {
     }
 }
 
-vector<float> delta_3(kS3);
-vector<float> delta_2(kS2WithBias);
 float error;
 const float epsilon = 0.000001; // 0.0000001 = 91.1%
 const float kGamma = 0.9;
+
+FMatrix2D gradient_acc_hidden(kS2, vector<float>(kS1WithBias));
+FMatrix2D gradient_acc_output(kS3, vector<float>(kS2WithBias));
 
 void Backpropagate() {
     vector<float> target_value(kS3);
     target_value[*expected_label_for_current_input_vector] = 1;
     
+    vector<float> current_delta_output(kS3);
+    
     for (int k = 0; k < kS3; k++) {
-        delta_3[k] = LogisticSigmoidPrime(z_3[k]) * (target_value[k] - a_3[k]);
+        current_delta_output[k] = LogisticSigmoidPrime(z_3[k]) * (target_value[k] - a_3[k]);
+        delta_output[k] = current_delta_output[k];
     }
     
     for (int i = 0; i < kS2WithBias; i++) {
-        delta_2[i] = 0;
+        float sum;
         for (int k = 0; k < kS3; k++) {
-            delta_2[i] += delta_3[k] * theta_2[k][i];
+            sum += current_delta_output[k] * theta_2[k][i];
         }
-        delta_2[i] *= LogisticSigmoidPrime(z_2[i]);
+        delta_hidden[i] = LogisticSigmoidPrime(z_2[i]) * sum;
     }
     
     for (int i = 0; i < kS2; i++) {
-        for (int j = 0; j < kS3; j++) {
-            float grad = delta_3[j] * a_2[i+1];
-            theta_2[j][i+1] += learning_rate * grad;
-            //theta_2[j][i+1] = learning_rate * delta_3[j] * a_2[i+1] + momentum * theta_2[j][i+1];
+        for (int j = 0; i < kS3; i++) {
+            gradient_acc_output[j][i+1] += delta_output[j] * a_2[i+1];
         }
     }
-    for (int j = 0; j < kS3; j++) {
-        theta_2[j][0] += learning_rate * delta_3[j];
-        //theta_2[j][0] = learning_rate * delta_3[j] + momentum * theta_2[j][0];
+    
+    for (int i = 0; i < kS3; i++) {
+        gradient_acc_output[i][0] += delta_output[i];
     }
     
     for (int i = 0; i < kS1; i++) {
-        for (int j = 0; j < kS2; j++) {
-            float grad = delta_2[j] * a_1[i+1];
-            theta_1[j][i+1] += learning_rate * grad;
-            //theta_1[j][i+1] += learning_rate * delta_2[j] * a_1[i+1];
-            //theta_1[j][i+1] = learning_rate * delta_2[j] * a_1[i+1] + momentum * theta_1[j][i+1];
+        for (int j = 0; i < kS2; i++) {
+            gradient_acc_hidden[j][i+1] += delta_hidden[j] * a_1[i+1];
         }
     }
-    for (int j = 0; j < kS2; j++) {
-        theta_1[j][0] += learning_rate * delta_2[j];
-        //theta_1[j][0] = learning_rate * delta_2[j] + momentum * theta_1[j][0];
+    
+    for (int i = 0; i < kS2; i++) {
+        gradient_acc_hidden[i][0] += delta_hidden[i];
     }
     
     float sum = 0;
@@ -189,6 +192,25 @@ void Backpropagate() {
         sum += pow(target_value[i]-a_3[i], 2)/kS3;
     }
     error += sum;
+}
+
+void UpdateWeights() {
+    for (int i = 0; i < kS2WithBias; i++) {
+        for (int j = 0; j < kS3; j++) {
+            theta_2[j][i] += learning_rate * gradient_acc_output[j][i] / batch_size;
+            gradient_acc_output[j][i] = 0;
+            //theta_2[j][i+1] = learning_rate * delta_3[j] * a_2[i+1] + momentum * theta_2[j][i+1];
+        }
+    }
+    
+    for (int i = 0; i < kS1WithBias; i++) {
+        for (int j = 0; j < kS2; j++) {
+            theta_1[j][i] += learning_rate * gradient_acc_hidden[j][i] / batch_size;
+            gradient_acc_hidden[j][i] = 0;
+            //theta_1[j][i+1] += learning_rate * delta_2[j] * a_1[i+1];
+            //theta_1[j][i+1] = learning_rate * delta_2[j] * a_1[i+1] + momentum * theta_1[j][i+1];
+        }
+    }
 }
 
 int LoadVectorsAndLabelsFromFile(string vector_filename, string label_filename) {
@@ -219,7 +241,7 @@ int LoadVectorsAndLabelsFromFile(string vector_filename, string label_filename) 
 
 void TrainNeuralNetwork() {
     int trainingSetSize = LoadVectorsAndLabelsFromFile(kMnistTrainVectorsFileName, kMnistTrainLabelsFileName);
-    cout << "Starting simple SGD training of a 3-layer NN..." << endl;
+    cout << "Starting mini-batch GD of a 3-layer NN..." << endl;
     cout << "(" << kS1 << " input neurons) x (" << kS2 << " hidden neurons) x (" << kS3 << " output neurons)" << endl;
     cout << "Learning rate: " << learning_rate << endl;
     cout << "Epochs: " << epochs << endl;
@@ -245,6 +267,7 @@ void TrainNeuralNetwork() {
         }
         cout << "Error is " << error/batch_size << " after " << e << " epochs." << endl;
         error = 0;
+        UpdateWeights();
     }
     cout << "Finished training!" << endl;
 }
