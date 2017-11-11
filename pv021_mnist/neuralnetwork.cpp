@@ -36,15 +36,15 @@ const int kInputImageHeight = 28;
 const float epsilon_init = 0.12;
 
 // TWEAK LATER
-const int epochs = 60000;
-const int batch_size = 1;
+const int epochs = 2000;
+const int batch_size = 20;
 const float learning_rate = 0.01;
 
 const float momentum = 0.8;
 
 // 3 layers, s represents number of neurons / units in each layer
 const int kS1 = (kInputImageWidth * kInputImageHeight);
-const int kS2 = 700; // tweak later
+const int kS2 = 400; // tweak later
 const int kS3 = kOutputClasses;
 
 const int kS1WithBias = kS1 + 1;
@@ -152,23 +152,20 @@ void Backpropagate() {
     vector<float> target_value(kS3);
     target_value[*expected_label_for_current_input_vector] = 1;
     
-    vector<float> current_delta_output(kS3);
-    
     for (int k = 0; k < kS3; k++) {
-        current_delta_output[k] = LogisticSigmoidPrime(z_3[k]) * (target_value[k] - a_3[k]);
-        delta_output[k] = current_delta_output[k];
+        delta_output[k] = LogisticSigmoidPrime(z_3[k]) * (target_value[k] - a_3[k]);
     }
     
     for (int i = 0; i < kS2WithBias; i++) {
-        float sum;
+        delta_hidden[i] = 0;
         for (int k = 0; k < kS3; k++) {
-            sum += current_delta_output[k] * theta_2[k][i];
+            delta_hidden[i] += delta_output[k] * theta_2[k][i];
         }
-        delta_hidden[i] = LogisticSigmoidPrime(z_2[i]) * sum;
+        delta_hidden[i] *= LogisticSigmoidPrime(z_2[i]);
     }
     
     for (int i = 0; i < kS2; i++) {
-        for (int j = 0; i < kS3; i++) {
+        for (int j = 0; j < kS3; j++) {
             gradient_acc_output[j][i+1] += delta_output[j] * a_2[i+1];
         }
     }
@@ -178,7 +175,7 @@ void Backpropagate() {
     }
     
     for (int i = 0; i < kS1; i++) {
-        for (int j = 0; i < kS2; i++) {
+        for (int j = 0; j < kS2; j++) {
             gradient_acc_hidden[j][i+1] += delta_hidden[j] * a_1[i+1];
         }
     }
