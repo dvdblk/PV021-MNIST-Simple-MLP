@@ -36,15 +36,15 @@ const int kInputImageHeight = 28;
 const float epsilon_init = 0.12;
 
 // TWEAK LATER
-const int epochs = 2000;
-const int batch_size = 20;
+const int epochs = 7000;
+const int batch_size = 10;
 const float learning_rate = 0.01;
 
-const float momentum = 0.8;
+const float momentum = 0.6;
 
 // 3 layers, s represents number of neurons / units in each layer
 const int kS1 = (kInputImageWidth * kInputImageHeight);
-const int kS2 = 400; // tweak later
+const int kS2 = 700; // tweak later
 const int kS3 = kOutputClasses;
 
 const int kS1WithBias = kS1 + 1;
@@ -120,10 +120,10 @@ void Propagate(vector<int> input) {
     }
     
     // First layer's activation vector is just the input vector
-    a_1[0] = 1; // 1st layer bias
     for (int i = 0; i < kS1; i++) {
         a_1[i+1] = input[i];
     }
+    a_1[0] = 1; // 1st layer bias
     
     for (int i = 0; i < kS2; i++) {
         for (int j = 0; j < kS1WithBias; j++) {
@@ -191,21 +191,26 @@ void Backpropagate() {
     error += sum;
 }
 
+
+FMatrix2D previous_change_in_theta_1(kS2, vector<float>(kS1WithBias));
+FMatrix2D previous_change_in_theta_2(kS3, vector<float>(kS2WithBias));
+
 void UpdateWeights() {
     for (int i = 0; i < kS2WithBias; i++) {
         for (int j = 0; j < kS3; j++) {
-            theta_2[j][i] += learning_rate * gradient_acc_output[j][i] / batch_size;
+            float change_in_theta = learning_rate * gradient_acc_output[j][i] / batch_size + momentum * previous_change_in_theta_2[j][i];
+            theta_2[j][i] += change_in_theta;
+            previous_change_in_theta_2[j][i] = change_in_theta;
             gradient_acc_output[j][i] = 0;
-            //theta_2[j][i+1] = learning_rate * delta_3[j] * a_2[i+1] + momentum * theta_2[j][i+1];
         }
     }
     
     for (int i = 0; i < kS1WithBias; i++) {
         for (int j = 0; j < kS2; j++) {
-            theta_1[j][i] += learning_rate * gradient_acc_hidden[j][i] / batch_size;
+            float change_in_theta = learning_rate * gradient_acc_hidden[j][i] / batch_size + momentum * previous_change_in_theta_1[j][i];
+            theta_1[j][i] += change_in_theta;
+            previous_change_in_theta_1[j][i] = change_in_theta;
             gradient_acc_hidden[j][i] = 0;
-            //theta_1[j][i+1] += learning_rate * delta_2[j] * a_1[i+1];
-            //theta_1[j][i+1] = learning_rate * delta_2[j] * a_1[i+1] + momentum * theta_1[j][i+1];
         }
     }
 }
@@ -238,11 +243,13 @@ int LoadVectorsAndLabelsFromFile(string vector_filename, string label_filename) 
 
 void TrainNeuralNetwork() {
     int trainingSetSize = LoadVectorsAndLabelsFromFile(kMnistTrainVectorsFileName, kMnistTrainLabelsFileName);
-    cout << "Starting mini-batch GD of a 3-layer NN..." << endl;
+    cout << "Starting mini-batch GD with momentum of a 3-layer NN..." << endl;
     cout << "(" << kS1 << " input neurons) x (" << kS2 << " hidden neurons) x (" << kS3 << " output neurons)" << endl;
     cout << "Learning rate: " << learning_rate << endl;
+    cout << "Momentum: " << momentum << endl;
     cout << "Epochs: " << epochs << endl;
     cout << "Batch size: " << batch_size << endl;
+
     // random init of thetas (weights)
     RandomlyInitialize(theta_1, kS2, kS1WithBias);
     RandomlyInitialize(theta_2, kS3, kS2WithBias);
@@ -301,4 +308,10 @@ void TestNeuralNetwork() {
         actual_predictions_file << GetPredictedClass() << endl;
     }
     actual_predictions_file.close();
+    cout << "Finished mini-batch GD with momentum of a 3-layer NN..." << endl;
+    cout << "(" << kS1 << " input neurons) x (" << kS2 << " hidden neurons) x (" << kS3 << " output neurons)" << endl;
+    cout << "Learning rate: " << learning_rate << endl;
+    cout << "Momentum: " << momentum << endl;
+    cout << "Epochs: " << epochs << endl;
+    cout << "Batch size: " << batch_size << endl;
 }
